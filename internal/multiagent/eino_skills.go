@@ -82,6 +82,8 @@ func subAgentFilesystemMiddleware(
 	invokeNotify *einomcp.ToolInvokeNotifyHolder,
 	einoAgentName string,
 	recordMonitor func(command, stdout string, success bool, invokeErr error),
+	toolTimeoutMinutes int,
+	outputChunk func(toolName, toolCallID, chunk string),
 ) (adk.ChatModelAgentMiddleware, error) {
 	if loc == nil {
 		return nil, nil
@@ -89,10 +91,20 @@ func subAgentFilesystemMiddleware(
 	return filesystem.New(ctx, &filesystem.MiddlewareConfig{
 		Backend: loc,
 		StreamingShell: &einoStreamingShellWrap{
-			inner:         loc,
-			invokeNotify:  invokeNotify,
-			einoAgentName: strings.TrimSpace(einoAgentName),
-			recordMonitor: recordMonitor,
+			inner:              loc,
+			invokeNotify:       invokeNotify,
+			einoAgentName:      strings.TrimSpace(einoAgentName),
+			outputChunk:        outputChunk,
+			recordMonitor:      recordMonitor,
+			toolTimeoutMinutes: toolTimeoutMinutes,
 		},
 	})
+}
+
+// agentToolTimeoutMinutes 返回 agent.tool_timeout_minutes（与 executeToolViaMCP 一致）；cfg 为 nil 时 0。
+func agentToolTimeoutMinutes(cfg *config.Config) int {
+	if cfg == nil {
+		return 0
+	}
+	return cfg.Agent.ToolTimeoutMinutes
 }

@@ -15,8 +15,8 @@ import (
 
 	"cyberstrike-ai/internal/agent"
 	"cyberstrike-ai/internal/config"
-	"cyberstrike-ai/internal/einoobserve"
 	"cyberstrike-ai/internal/einomcp"
+	"cyberstrike-ai/internal/einoobserve"
 	"cyberstrike-ai/internal/openai"
 
 	"github.com/cloudwego/eino/adk"
@@ -267,7 +267,16 @@ func runEinoADKAgentLoop(ctx context.Context, args *einoADKRunLoopArgs, baseMsgs
 			isErr := !success || invokeErr != nil
 			body := content
 			if invokeErr != nil {
-				body = invokeErr.Error()
+				// 保留已流式累计的 stdout（如 execute 超时前的一半输出），避免 tool_result 只剩错误串、模型与 UI 丢失上下文
+				tail := friendlyEinoExecuteInvokeTail(invokeErr)
+				// execute 流式包装可能已把超时句写入 content（供 ADK tool 与流式 delta）；勿重复拼接
+				if tail != "" && strings.Contains(content, tail) {
+					body = content
+				} else if strings.TrimSpace(content) != "" {
+					body = strings.TrimRight(content, "\n") + "\n\n" + tail
+				} else {
+					body = tail
+				}
 				isErr = true
 			}
 			recordPendingExecuteStdoutDup(toolName, body, isErr)
@@ -946,6 +955,17 @@ func persistTraceSource(args *einoADKRunLoopArgs, fallback []adk.Message) []adk.
 func einoPartialRunLastOutputHint() string {
 	return "[执行未正常结束（用户停止、超时或异常）。续跑时请基于上文已产生的工具与结果继续，勿重复已完成步骤。]\n" +
 		"[Run ended abnormally; continue from the trace above without repeating completed steps.]"
+}
+
+// friendlyEinoExecuteInvokeTail 将 Eino execute 等非 MCP 路径的结尾错误转成简短提示；其它情况保留原 error 文本。
+func friendlyEinoExecuteInvokeTail(invokeErr error) string {
+	if invokeErr == nil {
+		return ""
+	}
+	if errors.Is(invokeErr, context.DeadlineExceeded) {
+		return einoExecuteTimeoutUserHint()
+	}
+	return "[执行未正常结束] " + invokeErr.Error()
 }
 
 func buildEinoRunResultFromAccumulated(

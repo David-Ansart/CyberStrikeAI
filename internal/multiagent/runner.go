@@ -244,7 +244,7 @@ func RunDeepAgent(
 			}
 			if einoSkillMW != nil {
 				if einoFSTools && einoLoc != nil {
-					subFs, fsErr := subAgentFilesystemMiddleware(ctx, einoLoc, toolInvokeNotify, id, einoExecMonitor)
+					subFs, fsErr := subAgentFilesystemMiddleware(ctx, einoLoc, toolInvokeNotify, id, einoExecMonitor, agentToolTimeoutMinutes(appCfg), toolOutputChunk)
 					if fsErr != nil {
 						return nil, fmt.Errorf("子代理 %q filesystem 中间件: %w", id, fsErr)
 					}
@@ -376,10 +376,12 @@ func RunDeepAgent(
 	if einoLoc != nil && einoFSTools {
 		deepBackend = einoLoc
 		deepShell = &einoStreamingShellWrap{
-			inner:         einoLoc,
-			invokeNotify:  toolInvokeNotify,
-			einoAgentName: orchestratorName,
-			recordMonitor: einoExecMonitor,
+			inner:              einoLoc,
+			invokeNotify:       toolInvokeNotify,
+			einoAgentName:      orchestratorName,
+			outputChunk:        toolOutputChunk,
+			recordMonitor:      einoExecMonitor,
+			toolTimeoutMinutes: agentToolTimeoutMinutes(appCfg),
 		}
 	}
 
@@ -443,7 +445,7 @@ func RunDeepAgent(
 		// 构建 filesystem 中间件（与 Deep sub-agent 一致）
 		var peFsMw adk.ChatModelAgentMiddleware
 		if einoSkillMW != nil && einoFSTools && einoLoc != nil {
-			peFsMw, err = subAgentFilesystemMiddleware(ctx, einoLoc, toolInvokeNotify, "executor", einoExecMonitor)
+			peFsMw, err = subAgentFilesystemMiddleware(ctx, einoLoc, toolInvokeNotify, "executor", einoExecMonitor, agentToolTimeoutMinutes(appCfg), toolOutputChunk)
 			if err != nil {
 				return nil, fmt.Errorf("plan_execute filesystem 中间件: %w", err)
 			}
