@@ -1588,6 +1588,11 @@
     "detailVulnId": "Vuln ID",
     "detailType": "Type",
     "detailTarget": "Target",
+    "detailProject": "Project",
+    "projectUnbound": "No project",
+    "projectBindHint": "Once bound, agents can list this finding under the project scope.",
+    "projectBindFailed": "Failed to update project binding",
+    "projectBindOk": "Project binding updated",
     "detailConversationId": "Conversation ID",
     "detailTaskId": "Task ID",
     "detailTaskQueueId": "Task queue ID",
@@ -2161,6 +2166,9 @@
     "add": "Add"
   },
   "vulnerabilityModal": {
+    "project": "Project",
+    "projectNone": "(Unbound)",
+    "projectHint": "Bound findings appear in list_vulnerabilities for that project; leave empty to infer from the conversation when possible.",
     "conversationId": "Conversation ID",
     "conversationIdPlaceholder": "Enter conversation ID",
     "conversationTag": "Conversation tag",

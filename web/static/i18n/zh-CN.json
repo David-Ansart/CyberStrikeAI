@@ -1577,6 +1577,11 @@
     "detailVulnId": "漏洞ID",
     "detailType": "类型",
     "detailTarget": "目标",
+    "detailProject": "所属项目",
+    "projectUnbound": "未绑定项目",
+    "projectBindHint": "绑定后 Agent 可在项目范围内查询到该漏洞",
+    "projectBindFailed": "绑定项目失败",
+    "projectBindOk": "已更新项目绑定",
     "detailConversationId": "会话ID",
     "detailTaskId": "任务ID",
     "detailTaskQueueId": "任务队列ID",
@@ -2150,6 +2155,9 @@
     "add": "添加"
   },
   "vulnerabilityModal": {
+    "project": "所属项目",
+    "projectNone": "（未绑定）",
+    "projectHint": "绑定后 Agent 在项目范围内可通过 list_vulnerabilities 看到本条记录；留空则尝试从会话自动关联。",
     "conversationId": "会话ID",
     "conversationIdPlaceholder": "输入会话ID",
     "conversationTag": "对话标签",

@@ -1028,7 +1028,12 @@ async function batchScanSelectedFofaRows() {
         const resp = await apiFetch('/api/batch-tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, tasks, role })
+            body: JSON.stringify({
+                title,
+                tasks,
+                role,
+                projectId: typeof getActiveProjectId === 'function' ? getActiveProjectId() || '' : '',
+            })
         });
         const result = await resp.json().catch(() => ({}));
         if (!resp.ok) {

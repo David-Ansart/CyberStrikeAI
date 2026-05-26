@@ -646,6 +646,9 @@ function toggleAgentModePanel() {
     if (typeof closeRoleSelectionPanel === 'function') {
         closeRoleSelectionPanel();
     }
+    if (typeof closeChatProjectPanel === 'function') {
+        closeChatProjectPanel();
+    }
     panel.style.display = 'flex';
     btn.classList.add('active');
     btn.setAttribute('aria-expanded', 'true');
@@ -897,6 +900,10 @@ async function sendMessage() {
         conversationId: currentConversationId,
         role: typeof getCurrentRole === 'function' ? getCurrentRole() : ''
     };
+    if (!currentConversationId && typeof getActiveProjectId === 'function') {
+        const pid = getActiveProjectId();
+        if (pid) body.projectId = pid;
+    }
     const hitlCfg = readHitlConfigFromForm();
     if (normalizeHitlMode(hitlCfg.mode) !== HITL_MODE_OFF) {
         const sensitiveTools = hitlToolsSplitToArray(hitlCfg.sensitiveTools || '');
@@ -2900,10 +2907,14 @@ async function startNewConversation() {
     }
     
     currentConversationId = null;
+    window._loadedConversationProjectId = '';
     try {
         window.currentConversationId = '';
     } catch (e) { /* ignore */ }
     currentConversationGroupId = null; // 新对话不属于任何分组
+    if (typeof refreshChatProjectSelector === 'function') {
+        refreshChatProjectSelector();
+    }
     document.getElementById('chat-messages').innerHTML = '';
     const readyMsgNew = typeof window.t === 'function' ? window.t('chat.systemReadyMessage') : '系统已就绪。请输入您的测试需求，系统将自动执行相应的安全测试。';
     addMessage('assistant', readyMsgNew, null, null, null, { systemReadyMessage: true });
@@ -3158,9 +3169,13 @@ async function loadConversation(conversationId) {
         
         // 更新当前对话ID
         currentConversationId = conversationId;
+        window._loadedConversationProjectId = conversation.projectId || conversation.project_id || '';
         try {
             window.currentConversationId = conversationId;
         } catch (e) { /* ignore */ }
+        if (typeof refreshChatProjectSelector === 'function') {
+            refreshChatProjectSelector();
+        }
         if (typeof window.syncHitlConfigFromServer === 'function') {
             await window.syncHitlConfigFromServer(conversationId);
         } else {

@@ -244,30 +244,46 @@ function selectRole(roleName) {
     renderRoleSelectionSidebar(); // 重新渲染以更新选中状态
 }
 
+function getChatRoleSelectorWrapper() {
+    return document.getElementById('role-selector-wrapper')
+        || document.getElementById('role-selector-btn')?.closest('.role-selector-wrapper:not(.project-selector-wrapper)');
+}
+
+function isRoleSelectionPanelOpen() {
+    const panel = document.getElementById('role-selection-panel');
+    if (!panel) return false;
+    return panel.style.display !== 'none' && panel.style.display !== '';
+}
+
 // 切换角色选择面板显示/隐藏
 function toggleRoleSelectionPanel() {
     const panel = document.getElementById('role-selection-panel');
     const roleSelectorBtn = document.getElementById('role-selector-btn');
     if (!panel) return;
     
-    const isHidden = panel.style.display === 'none' || !panel.style.display;
+    const isHidden = !isRoleSelectionPanelOpen();
     
     if (isHidden) {
         if (typeof closeAgentModePanel === 'function') {
             closeAgentModePanel();
         }
+        if (typeof closeChatProjectPanel === 'function') {
+            closeChatProjectPanel();
+        }
         if (typeof closeChatReasoningPanel === 'function') {
             closeChatReasoningPanel();
         }
+        renderRoleSelectionSidebar();
         panel.style.display = 'flex'; // 使用flex布局
         // 添加打开状态的视觉反馈
         if (roleSelectorBtn) {
             roleSelectorBtn.classList.add('active');
+            roleSelectorBtn.setAttribute('aria-expanded', 'true');
         }
         
         // 确保面板渲染后再检查位置
         setTimeout(() => {
-            const wrapper = document.querySelector('.role-selector-wrapper');
+            const wrapper = getChatRoleSelectorWrapper();
             if (wrapper) {
                 const rect = wrapper.getBoundingClientRect();
                 const panelHeight = panel.offsetHeight || 400;
@@ -281,11 +297,7 @@ function toggleRoleSelectionPanel() {
             }
         }, 10);
     } else {
-        panel.style.display = 'none';
-        // 移除打开状态的视觉反馈
-        if (roleSelectorBtn) {
-            roleSelectorBtn.classList.remove('active');
-        }
+        closeRoleSelectionPanel();
     }
 }
 
@@ -298,6 +310,7 @@ function closeRoleSelectionPanel() {
     }
     if (roleSelectorBtn) {
         roleSelectorBtn.classList.remove('active');
+        roleSelectorBtn.setAttribute('aria-expanded', 'false');
     }
 }
 
@@ -1568,9 +1581,9 @@ async function deleteRole(roleName) {
 }
 
 // 在页面切换时初始化角色列表
-if (typeof switchPage === 'function') {
-    const originalSwitchPage = switchPage;
-    switchPage = function(page) {
+if (typeof window.switchPage === 'function') {
+    const originalSwitchPage = window.switchPage;
+    window.switchPage = function(page) {
         originalSwitchPage(page);
         if (page === 'roles-management') {
             loadRoles().then(() => renderRolesList());
@@ -1590,11 +1603,9 @@ document.addEventListener('click', (e) => {
         closeRoleModal();
     }
 
-    // 点击角色选择面板外部关闭面板（但不包括角色选择按钮和面板本身）
-    const roleSelectionPanel = document.getElementById('role-selection-panel');
-    const roleSelectorWrapper = document.querySelector('.role-selector-wrapper');
-    if (roleSelectionPanel && roleSelectionPanel.style.display !== 'none' && roleSelectionPanel.style.display) {
-        // 检查点击是否在面板或包装器上
+    // 点击角色选择面板外部关闭（须用 #role-selector-wrapper，勿用 .role-selector-wrapper：项目选择器也带该类）
+    if (isRoleSelectionPanelOpen()) {
+        const roleSelectorWrapper = getChatRoleSelectorWrapper();
         if (!roleSelectorWrapper?.contains(e.target)) {
             closeRoleSelectionPanel();
         }

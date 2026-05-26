@@ -979,7 +979,16 @@ async function createBatchQueue() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ title, tasks, role, agentMode, scheduleMode, cronExpr, executeNow }),
+            body: JSON.stringify({
+                title,
+                tasks,
+                role,
+                agentMode,
+                scheduleMode,
+                cronExpr,
+                executeNow,
+                projectId: typeof getActiveProjectId === 'function' ? getActiveProjectId() || '' : '',
+            }),
         });
         
         if (!response.ok) {

@@ -25,6 +25,13 @@ function scheduleChatConversationFromHash(delayMs) {
     }
     const params = new URLSearchParams(hashParts.slice(1).join('?'));
     const conversationId = params.get('conversation');
+    const projectId = params.get('project');
+    if (projectId && typeof setActiveProjectId === 'function') {
+        setActiveProjectId(projectId);
+        if (typeof refreshChatProjectSelector === 'function') {
+            refreshChatProjectSelector();
+        }
+    }
     if (!conversationId) {
         return;
     }
@@ -50,7 +57,7 @@ function initRouter() {
     if (hash) {
         const hashParts = hash.split('?');
         const pageId = hashParts[0];
-        if (pageId && ['dashboard', 'chat', 'hitl', 'info-collect', 'vulnerabilities', 'webshell', 'chat-files', 'mcp-monitor', 'mcp-management', 'knowledge-management', 'knowledge-retrieval-logs', 'roles-management', 'skills-monitor', 'skills-management', 'agents-management', 'settings', 'tasks', 'c2', 'c2-listeners', 'c2-sessions', 'c2-tasks', 'c2-payloads', 'c2-events', 'c2-profiles'].includes(pageId)) {
+        if (pageId && ['dashboard', 'chat', 'hitl', 'info-collect', 'projects', 'vulnerabilities', 'webshell', 'chat-files', 'mcp-monitor', 'mcp-management', 'knowledge-management', 'knowledge-retrieval-logs', 'roles-management', 'skills-monitor', 'skills-management', 'agents-management', 'settings', 'tasks', 'c2', 'c2-listeners', 'c2-sessions', 'c2-tasks', 'c2-payloads', 'c2-events', 'c2-profiles'].includes(pageId)) {
             switchPage(pageId);
             if (pageId === 'chat') {
                 scheduleChatConversationFromHash(500);
@@ -187,6 +194,24 @@ function updateNavState(pageId) {
     }
 }
 
+/** 读取侧栏子菜单项（仅 .nav-submenu 内，避免误匹配） */
+function getNavSubmenuItems(navItem) {
+    if (!navItem) return [];
+    const submenu = navItem.querySelector('.nav-submenu');
+    if (!submenu) return [];
+    return Array.from(submenu.querySelectorAll('.nav-submenu-item'));
+}
+
+/** 仅一个子页时直接进入，避免展开后菜单在侧栏底部不可见 */
+function navigateSingleSubmenuPage(navItem) {
+    const items = getNavSubmenuItems(navItem);
+    if (items.length !== 1) return false;
+    const pageId = items[0].getAttribute('data-page');
+    if (!pageId) return false;
+    switchPage(pageId);
+    return true;
+}
+
 // 切换子菜单
 function toggleSubmenu(menuId) {
     const sidebar = document.getElementById('main-sidebar');
@@ -194,24 +219,50 @@ function toggleSubmenu(menuId) {
     
     if (!navItem) return;
     
+    const collapsed = sidebar && sidebar.classList.contains('collapsed');
+
     // 检查侧边栏是否折叠
-    if (sidebar && sidebar.classList.contains('collapsed')) {
+    if (collapsed) {
         // 折叠状态下显示弹出菜单
         showSubmenuPopup(navItem, menuId);
-    } else {
-        // 展开状态下正常切换子菜单
-        navItem.classList.toggle('expanded');
+        return;
+    }
+
+    // 展开侧栏且仅一个子项（角色、Agents 等）：单击直接进入，无需再点二级菜单
+    if (navigateSingleSubmenuPage(navItem)) {
+        return;
+    }
+
+    // 展开状态下切换子菜单，并滚入视口以便看到子项
+    const willExpand = !navItem.classList.contains('expanded');
+    navItem.classList.toggle('expanded');
+    if (willExpand) {
+        requestAnimationFrame(() => {
+            navItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            const items = getNavSubmenuItems(navItem);
+            const last = items[items.length - 1];
+            if (last) {
+                last.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        });
     }
 }
 window.toggleSubmenu = toggleSubmenu;
 
 // 显示子菜单弹出框
 function showSubmenuPopup(navItem, menuId) {
-    // 移除其他已打开的弹出菜单
     const existingPopup = document.querySelector('.submenu-popup');
     if (existingPopup) {
+        const sameMenu = existingPopup.dataset.menuId === menuId;
         existingPopup.remove();
-        return; // 如果已经打开，点击时关闭
+        // 再次点击同一项：仅关闭；点击另一项：继续打开新菜单
+        if (sameMenu) {
+            return;
+        }
+    }
+
+    if (navigateSingleSubmenuPage(navItem)) {
+        return;
     }
     
     const navItemContent = navItem.querySelector('.nav-item-content');
@@ -225,6 +276,7 @@ function showSubmenuPopup(navItem, menuId) {
     // 创建弹出菜单
     const popup = document.createElement('div');
     popup.className = 'submenu-popup';
+    popup.dataset.menuId = menuId;
     popup.style.position = 'fixed';
     popup.style.left = (rect.right + 8) + 'px';
     popup.style.top = rect.top + 'px';
@@ -289,6 +341,12 @@ async function initPage(pageId) {
         case 'chat':
             // 恢复对话列表折叠状态（从其他页返回时保持用户选择）
             initConversationSidebarState();
+            if (typeof prefetchProjectsForChat === 'function') {
+                prefetchProjectsForChat();
+            }
+            if (typeof refreshChatProjectSelector === 'function') {
+                refreshChatProjectSelector();
+            }
             break;
         case 'hitl':
             if (typeof refreshHitlPending === 'function') {
@@ -346,6 +404,11 @@ async function initPage(pageId) {
                 loadExternalMCPs().catch(err => {
                     console.warn('加载外部MCP列表失败:', err);
                 });
+            }
+            break;
+        case 'projects':
+            if (typeof initProjectsPage === 'function') {
+                initProjectsPage();
             }
             break;
         case 'vulnerabilities':
