@@ -4069,6 +4069,11 @@ header {
     color: var(--text-primary);
 }
 
+/* 整页 HTML（如 HTTP 探测响应）在时间线中仅以转义文本展示 */
+.timeline-item-content .sanitized-raw-html-fallback {
+    max-height: 320px;
+}
+
 .tool-result-section.error .tool-result {
     background: rgba(220, 53, 69, 0.1);
     border-color: var(--error-color);

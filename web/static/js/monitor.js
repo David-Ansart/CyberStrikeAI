@@ -320,12 +320,8 @@ function applyEinoTimelineRole(item, data) {
     }
 }
 
-// markdown 渲染（用于最终合并渲染；流式增量阶段用纯转义避免部分语法不稳定）
-const assistantMarkdownSanitizeConfig = {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr'],
-    ALLOWED_ATTR: ['href', 'title', 'alt', 'src', 'class'],
-    ALLOW_DATA_ATTR: false,
-};
+/** 过程详情时间线：更严消毒（无 img；整页 HTML 见 sanitize-markdown.js） */
+const timelineMarkdownOpts = { profile: 'timeline' };
 
 function escapeHtmlLocal(text) {
     if (!text) return '';
@@ -627,20 +623,10 @@ function setTimelineItemContentStreamRich(contentEl, html) {
 }
 
 function formatAssistantMarkdownContent(text) {
-    const raw = text == null ? '' : String(text);
-    const src = normalizeAssistantMarkdownSource(raw);
-    if (typeof marked !== 'undefined') {
-        try {
-            marked.setOptions({ breaks: true, gfm: true });
-            const parsed = marked.parse(src, { async: false });
-            if (typeof DOMPurify !== 'undefined') {
-                return DOMPurify.sanitize(parsed, assistantMarkdownSanitizeConfig);
-            }
-            return parsed;
-        } catch (e) {
-            return escapeHtmlLocal(raw).replace(/\n/g, '<br>');
-        }
+    if (typeof window.csMarkdownSanitize !== 'undefined') {
+        return window.csMarkdownSanitize.formatMarkdownToHtml(text, { profile: 'chat' });
     }
+    const raw = text == null ? '' : String(text);
     return escapeHtmlLocal(raw).replace(/\n/g, '<br>');
 }
 
@@ -668,6 +654,10 @@ function updateAssistantBubbleContent(assistantMessageId, content, renderMarkdow
         wrapTablesInBubble(bubble);
     }
     if (copyBtn) bubble.appendChild(copyBtn);
+
+    if (typeof window.csMarkdownSanitize !== 'undefined') {
+        window.csMarkdownSanitize.stripSuspiciousImages(bubble);
+    }
 }
 
 const conversationExecutionTracker = {
@@ -1661,7 +1651,7 @@ function handleStreamEvent(event, progressElement, progressId,
                         const contentEl = item.querySelector('.timeline-item-content');
                         if (contentEl) {
                             if (typeof formatMarkdown === 'function') {
-                                setTimelineItemContentStreamRich(contentEl, formatMarkdown(s.buffer));
+                                setTimelineItemContentStreamRich(contentEl, formatMarkdown(s.buffer, timelineMarkdownOpts));
                             } else {
                                 setTimelineItemContentStreamPlain(contentEl, s.buffer);
                             }
@@ -2004,7 +1994,7 @@ function handleStreamEvent(event, progressElement, progressId,
                         item.appendChild(contentEl);
                     }
                     if (typeof formatMarkdown === 'function') {
-                        setTimelineItemContentStreamRich(contentEl, formatMarkdown(full));
+                        setTimelineItemContentStreamRich(contentEl, formatMarkdown(full, timelineMarkdownOpts));
                     } else {
                         setTimelineItemContentStreamPlain(contentEl, full);
                     }
@@ -3126,7 +3116,7 @@ function addTimelineItem(timeline, type, options) {
         const streamBody = typeof formatTimelineStreamBody === 'function'
             ? formatTimelineStreamBody(options.message, options.data)
             : options.message;
-        content += `<div class="timeline-item-content">${formatMarkdown(streamBody)}</div>`;
+        content += `<div class="timeline-item-content">${formatMarkdown(streamBody, timelineMarkdownOpts)}</div>`;
     } else if (type === 'tool_call' && options.data) {
         const data = options.data;
         const args = parseToolCallArgsFromData(data);
@@ -3155,7 +3145,7 @@ function addTimelineItem(timeline, type, options) {
             </div>
         `;
     } else if (type === 'eino_agent_reply' && options.message) {
-        content += `<div class="timeline-item-content">${formatMarkdown(options.message)}</div>`;
+        content += `<div class="timeline-item-content">${formatMarkdown(options.message, timelineMarkdownOpts)}</div>`;
     } else if (type === 'tool_result' && options.data) {
         const data = options.data;
         const isError = data.isError || !data.success;
@@ -3184,14 +3174,14 @@ function addTimelineItem(timeline, type, options) {
         const streamBody = typeof formatTimelineStreamBody === 'function'
             ? formatTimelineStreamBody(options.message, options.data)
             : options.message;
-        content += `<div class="timeline-item-content">${formatMarkdown(streamBody)}</div>`;
+        content += `<div class="timeline-item-content">${formatMarkdown(streamBody, timelineMarkdownOpts)}</div>`;
     } else if (type === 'progress' && options.message) {
         content += `<div class="timeline-item-content timeline-eino-trace"><pre class="tool-result">${escapeHtml(options.message)}</pre></div>`;
     } else if (type === 'user_interrupt_continue' && options.message) {
         const streamBody = typeof formatTimelineStreamBody === 'function'
             ? formatTimelineStreamBody(options.message, options.data)
             : options.message;
-        content += `<div class="timeline-item-content">${formatMarkdown(streamBody)}</div>`;
+        content += `<div class="timeline-item-content">${formatMarkdown(streamBody, timelineMarkdownOpts)}</div>`;
     }
 
     item.innerHTML = content;

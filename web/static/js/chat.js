@@ -1862,25 +1862,9 @@ function refreshSystemReadyMessageBubbles() {
         div.textContent = s;
         return div.innerHTML;
     };
-    const defaultSanitizeConfig = {
-        ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr'],
-        ALLOWED_ATTR: ['href', 'title', 'alt', 'src', 'class'],
-        ALLOW_DATA_ATTR: false,
-    };
     let formattedContent;
-    if (typeof marked !== 'undefined') {
-        try {
-            marked.setOptions({ breaks: true, gfm: true });
-            const src = typeof window.normalizeAssistantMarkdownSource === 'function'
-                ? window.normalizeAssistantMarkdownSource(text)
-                : text;
-            const parsed = marked.parse(src, { async: false });
-            formattedContent = typeof DOMPurify !== 'undefined'
-                ? DOMPurify.sanitize(parsed, defaultSanitizeConfig)
-                : parsed;
-        } catch (e) {
-            formattedContent = escapeHtmlLocal(text).replace(/\n/g, '<br>');
-        }
+    if (typeof window.csMarkdownSanitize !== 'undefined') {
+        formattedContent = window.csMarkdownSanitize.formatMarkdownToHtml(text, { profile: 'chat' });
     } else {
         formattedContent = escapeHtmlLocal(text).replace(/\n/g, '<br>');
     }
@@ -1936,43 +1920,11 @@ function addMessage(role, content, mcpExecutionIds = null, progressId = null, cr
     
     // 解析 Markdown 或 HTML 格式
     let formattedContent;
-    const defaultSanitizeConfig = {
-        ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr'],
-        ALLOWED_ATTR: ['href', 'title', 'alt', 'src', 'class'],
-        ALLOW_DATA_ATTR: false,
-    };
-    
-    // HTML实体编码函数
     const escapeHtml = (text) => {
         if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
-    };
-    
-    // 注意：代码块内容不需要转义，因为：
-    // 1. Markdown解析后，代码块会被包裹在<code>或<pre>标签中
-    // 2. 浏览器不会执行<code>和<pre>标签内的HTML（它们是文本节点）
-    // 3. DOMPurify会保留这些标签内的文本内容
-    // 这样既能防止XSS，又能正常显示代码
-    
-    const parseMarkdown = (raw) => {
-        if (typeof marked === 'undefined') {
-            return null;
-        }
-        try {
-            marked.setOptions({
-                breaks: true,
-                gfm: true,
-            });
-            const src = typeof window.normalizeAssistantMarkdownSource === 'function'
-                ? window.normalizeAssistantMarkdownSource(raw)
-                : raw;
-            return marked.parse(src, { async: false });
-        } catch (e) {
-            console.error('Markdown 解析失败:', e);
-            return null;
-        }
     };
     
     // 助手消息中的已知中文错误前缀做国际化替换（后端固定返回中文）
@@ -1989,57 +1941,11 @@ function addMessage(role, content, mcpExecutionIds = null, progressId = null, cr
     // 对于用户消息，直接转义HTML，不进行Markdown解析，以保留所有特殊字符
     if (role === 'user') {
         formattedContent = escapeHtml(content).replace(/\n/g, '<br>');
-    } else if (typeof DOMPurify !== 'undefined') {
-        // 直接解析Markdown（代码块会被包裹在<code>/<pre>中，DOMPurify会保留其文本内容）
-        let parsedContent = parseMarkdown(role === 'assistant' ? displayContent : content);
-        if (!parsedContent) {
-            parsedContent = content;
-        }
-        
-        // 使用DOMPurify清理，只添加必要的URL验证钩子（DOMPurify默认会处理事件处理器等）
-        if (DOMPurify.addHook) {
-            // 移除之前可能存在的钩子
-            try {
-                DOMPurify.removeHook('uponSanitizeAttribute');
-            } catch (e) {
-                // 钩子不存在，忽略
-            }
-            
-            // 只验证URL属性，防止危险协议（DOMPurify默认会处理事件处理器、style等）
-            DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
-                const attrName = data.attrName.toLowerCase();
-                
-                // 只验证URL属性（src, href）
-                if ((attrName === 'src' || attrName === 'href') && data.attrValue) {
-                    const value = data.attrValue.trim().toLowerCase();
-                    // 禁止危险协议
-                    if (value.startsWith('javascript:') || 
-                        value.startsWith('vbscript:') ||
-                        value.startsWith('data:text/html') ||
-                        value.startsWith('data:text/javascript')) {
-                        data.keepAttr = false;
-                        return;
-                    }
-                    // 对于img的src，禁止可疑的短URL（防止404和XSS）
-                    if (attrName === 'src' && node.tagName && node.tagName.toLowerCase() === 'img') {
-                        if (value.length <= 2 || /^[a-z]$/i.test(value)) {
-                            data.keepAttr = false;
-                            return;
-                        }
-                    }
-                }
-            });
-        }
-        
-        formattedContent = DOMPurify.sanitize(parsedContent, defaultSanitizeConfig);
-    } else if (typeof marked !== 'undefined') {
-        const rawForParse = role === 'assistant' ? displayContent : content;
-        const parsedContent = parseMarkdown(rawForParse);
-        if (parsedContent) {
-            formattedContent = parsedContent;
-        } else {
-            formattedContent = escapeHtml(rawForParse).replace(/\n/g, '<br>');
-        }
+    } else if (typeof window.csMarkdownSanitize !== 'undefined') {
+        formattedContent = window.csMarkdownSanitize.formatMarkdownToHtml(
+            role === 'assistant' ? displayContent : content,
+            { profile: 'chat' }
+        );
     } else {
         const rawForEscape = role === 'assistant' ? displayContent : content;
         formattedContent = escapeHtml(rawForEscape).replace(/\n/g, '<br>');
@@ -2047,21 +1953,9 @@ function addMessage(role, content, mcpExecutionIds = null, progressId = null, cr
     
     bubble.innerHTML = formattedContent;
     
-    // 最后的安全检查：只处理明显的可疑图片（防止404和XSS）
-    // DOMPurify已经处理了大部分XSS向量，这里只做必要的补充
-    const images = bubble.querySelectorAll('img');
-    images.forEach(img => {
-        const src = img.getAttribute('src');
-        if (src) {
-            const trimmedSrc = src.trim();
-            // 只检查明显的可疑URL（短字符串、单个字符）
-            if (trimmedSrc.length <= 2 || /^[a-z]$/i.test(trimmedSrc)) {
-                img.remove();
-            }
-        } else {
-            img.remove();
-        }
-    });
+    if (typeof window.csMarkdownSanitize !== 'undefined') {
+        window.csMarkdownSanitize.stripSuspiciousImages(bubble);
+    }
     
     // 为每个表格添加独立的滚动容器
     wrapTablesInBubble(bubble);

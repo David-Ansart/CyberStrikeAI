@@ -1963,8 +1963,6 @@
     "visionSkipPreprocessHint": "0 表示始终 JPEG 压缩；需同时满足长边与 payload 限制。",
     "visionDetail": "Image detail",
     "visionTimeout": "超时（秒）",
-    "visionAllowedRoots": "额外允许路径根目录",
-    "visionAllowedRootsPlaceholder": "每行一个绝对路径，可选",
     "visionTestFillRequired": "请填写视觉模型，并确保 API Key 可用（可复用 OpenAI）",
     "testConnection": "测试连接",
     "testFillRequired": "请先填写 API Key 和模型",

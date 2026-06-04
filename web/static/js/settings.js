@@ -1375,11 +1375,6 @@ function fillVisionConfigFromCurrent(v) {
         const d = (v.detail || 'low').toString().toLowerCase();
         det.value = ['low', 'auto', 'high'].includes(d) ? d : 'low';
     }
-    const rootsEl = document.getElementById('vision-allowed-roots');
-    if (rootsEl) {
-        const roots = Array.isArray(v.allowed_roots) ? v.allowed_roots : [];
-        rootsEl.value = roots.join('\n');
-    }
     syncVisionFormEnabled();
 }
 
@@ -1388,8 +1383,6 @@ function collectVisionConfigFromForm() {
         const n = parseInt(document.getElementById(id)?.value, 10);
         return Number.isNaN(n) ? fallback : n;
     };
-    const rootsRaw = document.getElementById('vision-allowed-roots')?.value || '';
-    const allowed_roots = rootsRaw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     const provider = document.getElementById('vision-provider')?.value.trim() || '';
     return {
         enabled: document.getElementById('vision-enabled')?.checked === true,
@@ -1403,8 +1396,7 @@ function collectVisionConfigFromForm() {
         jpeg_quality: parseIntOr('vision-jpeg-quality', 82),
         max_payload_bytes: parseIntOr('vision-max-payload-bytes', 524288),
         skip_preprocess_below_bytes: parseIntOr('vision-skip-preprocess-bytes', 2097152),
-        detail: document.getElementById('vision-detail')?.value || 'low',
-        allowed_roots: allowed_roots
+        detail: document.getElementById('vision-detail')?.value || 'low'
     };
 }
 

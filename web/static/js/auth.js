@@ -343,48 +343,13 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function formatMarkdown(text) {
-    const sanitizeConfig = {
-        ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr'],
-        ALLOWED_ATTR: ['href', 'title', 'alt', 'src', 'class'],
-        ALLOW_DATA_ATTR: false,
-    };
-
-    const raw = text == null ? '' : String(text);
-    const src = typeof window.normalizeAssistantMarkdownSource === 'function'
-        ? window.normalizeAssistantMarkdownSource(raw)
-        : raw;
-
-    if (typeof DOMPurify !== 'undefined') {
-        if (typeof marked !== 'undefined' && !/<[a-z][\s\S]*>/i.test(src)) {
-            try {
-                marked.setOptions({
-                    breaks: true,
-                    gfm: true,
-                });
-                const parsedContent = marked.parse(src, { async: false });
-                return DOMPurify.sanitize(parsedContent, sanitizeConfig);
-            } catch (e) {
-                console.error('Markdown 解析失败:', e);
-                return DOMPurify.sanitize(src, sanitizeConfig);
-            }
-        } else {
-            return DOMPurify.sanitize(src, sanitizeConfig);
-        }
-    } else if (typeof marked !== 'undefined') {
-        try {
-            marked.setOptions({
-                breaks: true,
-                gfm: true,
-            });
-            return marked.parse(src, { async: false });
-        } catch (e) {
-            console.error('Markdown 解析失败:', e);
-            return escapeHtml(src).replace(/\n/g, '<br>');
-        }
-    } else {
-        return escapeHtml(src).replace(/\n/g, '<br>');
+/** @param {string} text @param {{ profile?: 'chat'|'timeline' }} [options] */
+function formatMarkdown(text, options) {
+    if (typeof window.csMarkdownSanitize !== 'undefined') {
+        return window.csMarkdownSanitize.formatMarkdownToHtml(text, options);
     }
+    const raw = text == null ? '' : String(text);
+    return escapeHtml(raw).replace(/\n/g, '<br>');
 }
 
 function setupLoginUI() {

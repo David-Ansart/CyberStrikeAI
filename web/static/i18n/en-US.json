@@ -1974,8 +1974,6 @@
     "visionSkipPreprocessHint": "0 = always JPEG compress; must also fit long-edge and payload limits.",
     "visionDetail": "Image detail",
     "visionTimeout": "Timeout (seconds)",
-    "visionAllowedRoots": "Extra allowed path roots",
-    "visionAllowedRootsPlaceholder": "One absolute path per line, optional",
     "visionTestFillRequired": "Enter vision model and ensure API Key is available (or reuse OpenAI)",
     "testConnection": "Test Connection",
     "testFillRequired": "Please fill in API Key and Model first",

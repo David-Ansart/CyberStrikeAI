@@ -22,7 +22,6 @@ vision:
   skip_preprocess_below_bytes: 2097152  # 低于 2MB 且长边<=max_dimension 时原图直传；0=始终 JPEG 压缩
   detail: low          # low | high | auto
   timeout_seconds: 60
-  # allowed_roots: [] # 额外绝对路径根
 ```
 
 `enabled: false` 时不注册工具。
@@ -31,14 +30,9 @@ vision:
 
 **系统设置 → 基本设置 → 视觉分析（analyze_image）** 可配置启用开关、视觉模型、API Key/Base URL（留空复用 OpenAI）、预处理参数；**保存并应用** 后写入 `config.yaml` 并重新注册 MCP 工具。
 
-## 路径白名单
+## 路径
 
-默认可读：
-
-- 进程工作目录（`cwd`）及其子路径
-- `chat_uploads/`
-- `agent.result_storage_dir`（默认 `tmp/`）
-- `vision.allowed_roots` 中配置的绝对路径
+`analyze_image` 可读取服务器上任意可读的图片文件路径（绝对路径或相对于进程工作目录的相对路径）。仍校验图片扩展名与常规文件类型。
 
 ## Agent 使用
 

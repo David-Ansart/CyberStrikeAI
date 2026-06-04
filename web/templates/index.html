@@ -2544,10 +2544,6 @@
                                                         <label for="vision-timeout-seconds" data-i18n="settingsBasic.visionTimeout">超时（秒）</label>
                                                         <input type="number" id="vision-timeout-seconds" min="5" step="1" placeholder="60" />
                                                     </div>
-                                                    <div class="form-group">
-                                                        <label for="vision-allowed-roots" data-i18n="settingsBasic.visionAllowedRoots">额外允许路径根目录</label>
-                                                        <textarea id="vision-allowed-roots" rows="2" data-i18n="settingsBasic.visionAllowedRootsPlaceholder" data-i18n-attr="placeholder" placeholder="每行一个绝对路径，可选"></textarea>
-                                                    </div>
                                                 </div>
                                             </details>
                                             <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
@@ -3512,6 +3508,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <!-- DOMPurify for HTML sanitization to prevent XSS -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
+    <script src="/static/js/sanitize-markdown.js"></script>
     <!-- Cytoscape.js for attack chain visualization -->
     <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.27.0/dist/cytoscape.min.js"></script>
     <!-- ELK.js for high-quality DAG layout (reduces edge crossings) -->
