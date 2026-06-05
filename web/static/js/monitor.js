@@ -3832,10 +3832,10 @@ function renderMcpStatsTimelineRangeButtons() {
 }
 
 function renderMcpStatsTimelineBody(timeline, timelineError) {
-    const hint = mcpMonitorT('timelineHint') || '全部工具合计';
+    const hint = mcpMonitorT('timelineHint') || monitorFallback('全部工具合计', 'All tools combined');
 
     if (timelineError) {
-        const errText = mcpMonitorT('timelineLoadError') || '无法加载调用趋势';
+        const errText = mcpMonitorT('timelineLoadError') || monitorFallback('无法加载调用趋势', 'Failed to load call trend');
         return `<p class="mcp-stats-timeline-error">${escapeHtml(errText)}：${escapeHtml(timelineError)}</p>`;
     }
 
@@ -3846,7 +3846,7 @@ function renderMcpStatsTimelineBody(timeline, timelineError) {
         || `区间内 ${summaryTotal} 次 · 峰值 ${peak}`;
 
     if (points.length === 0 || summaryTotal === 0) {
-        const noData = mcpMonitorT('timelineNoData') || '该时段暂无调用';
+        const noData = mcpMonitorT('timelineNoData') || monitorFallback('该时段暂无调用', 'No calls in this period');
         return `<p class="mcp-stats-timeline-empty">${escapeHtml(noData)}</p>`;
     }
 
@@ -3871,9 +3871,9 @@ function renderMcpStatsTimelineBody(timeline, timelineError) {
 }
 
 function renderMcpStatsCombinedSection(topTools, totals, activeToolFilter, timeline, timelineError, showTimeline) {
-    const statsTitle = mcpMonitorT('toolStatsTitle') || '工具统计';
-    const timelineTitle = mcpMonitorT('timelineTitle') || '调用趋势';
-    const statsHint = mcpMonitorT('toolStatsHint') || '点击色条或列表行筛选下方执行记录';
+    const statsTitle = mcpMonitorT('toolStatsTitle') || monitorFallback('工具统计', 'Tool statistics');
+    const timelineTitle = mcpMonitorT('timelineTitle') || monitorFallback('调用趋势', 'Call trend');
+    const statsHint = mcpMonitorT('toolStatsHint') || monitorFallback('点击色条或列表行筛选下方执行记录', 'Click a bar segment or row to filter records below');
     const hasTools = topTools.length > 0;
 
     if (!hasTools && !showTimeline) return '';
@@ -3936,10 +3936,27 @@ function renderMcpStatsCombinedSection(topTools, totals, activeToolFilter, timel
 
 function mcpMonitorT(key, params) {
     if (typeof window.t !== 'function') return '';
-    return window.t('mcpMonitor.' + key, {
+    const fullKey = 'mcpMonitor.' + key;
+    const text = window.t(fullKey, {
         ...(params || {}),
         interpolation: { escapeValue: false },
     });
+    if (!text || text === fullKey) return '';
+    return text;
+}
+
+function monitorFallback(zhText, enText) {
+    return (typeof window.__locale === 'string' && window.__locale.startsWith('zh')) ? zhText : enText;
+}
+
+function refreshMonitorPanelFromState() {
+    if (!document.getElementById('monitor-stats')) return;
+    if (!monitorState.lastFetchedAt) return;
+    const statusFilter = document.getElementById('monitor-status-filter');
+    const currentStatusFilter = statusFilter ? statusFilter.value : 'all';
+    renderMonitorStats(monitorState.stats || {}, monitorState.lastFetchedAt);
+    renderMonitorExecutions(monitorState.executions || [], currentStatusFilter);
+    renderMonitorPagination();
 }
 
 function normalizeMonitorStatsEntries(statsMap) {
@@ -4295,7 +4312,7 @@ function updateMonitorStatsSubtitle(lastFetchedAt, toolCount) {
         ? (lastFetchedAt.toLocaleString ? lastFetchedAt.toLocaleString(locale) : String(lastFetchedAt))
         : '—';
     const text = mcpMonitorT('statsSubtitle', { time: timeText, count: toolCount })
-        || `最后刷新 ${timeText} · 共 ${toolCount} 个工具`;
+        || monitorFallback(`最后刷新 ${timeText} · 共 ${toolCount} 个工具`, `Refreshed ${timeText} · ${toolCount} tools`);
     subtitle.textContent = text;
     subtitle.hidden = false;
 }
@@ -4388,11 +4405,11 @@ function bindMonitorStatsPanelEvents() {
 }
 
 function renderMcpStatsMetricsBar(totals, successRate, rateTone, rateSubText, lastCallText, hasCalls = true) {
-    const totalCallsLabel = mcpMonitorT('totalCalls') || '总调用次数';
-    const successRateLabel = mcpMonitorT('successRate') || '成功率';
-    const lastCallLabel = mcpMonitorT('lastCall') || '最近一次调用';
-    const successPill = mcpMonitorT('successCount', { n: totals.success }) || `成功 ${totals.success}`;
-    const failedPill = mcpMonitorT('failedCount', { n: totals.failed }) || `失败 ${totals.failed}`;
+    const totalCallsLabel = mcpMonitorT('totalCalls') || monitorFallback('总调用次数', 'Total calls');
+    const successRateLabel = mcpMonitorT('successRate') || monitorFallback('成功率', 'Success rate');
+    const lastCallLabel = mcpMonitorT('lastCall') || monitorFallback('最近一次调用', 'Last call');
+    const successPill = mcpMonitorT('successCount', { n: totals.success }) || monitorFallback(`成功 ${totals.success}`, `Success ${totals.success}`);
+    const failedPill = mcpMonitorT('failedCount', { n: totals.failed }) || monitorFallback(`失败 ${totals.failed}`, `Failed ${totals.failed}`);
     const rateValue = hasCalls ? `${successRate}%` : successRate;
 
     return `
@@ -4646,7 +4663,7 @@ function renderMonitorStats(statsMap = {}, lastFetchedAt = null) {
     const entries = normalizeMonitorStatsEntries(statsMap);
     const showTimeline = monitorState.timeline != null || !!monitorState.timelineError;
     if (entries.length === 0 && !showTimeline) {
-        const noStats = mcpMonitorT('noStatsData') || '暂无统计数据';
+        const noStats = mcpMonitorT('noStatsData') || monitorFallback('暂无统计数据', 'No statistical data');
         container.innerHTML = '<div class="monitor-empty">' + escapeHtml(noStats) + '</div>';
         const subtitle = document.getElementById('monitor-stats-subtitle');
         if (subtitle) subtitle.hidden = true;
@@ -4671,7 +4688,7 @@ function renderMonitorStats(statsMap = {}, lastFetchedAt = null) {
     const successRateNum = hasCalls ? (totals.success / totals.total) * 100 : 0;
     const successRate = hasCalls ? successRateNum.toFixed(1) : '-';
     const locale = (typeof window.__locale === 'string' && window.__locale.startsWith('zh')) ? 'zh-CN' : 'en-US';
-    const noCallsYet = mcpMonitorT('noCallsYet') || '暂无调用';
+    const noCallsYet = mcpMonitorT('noCallsYet') || monitorFallback('暂无调用', 'No calls yet');
     const lastCallText = totals.lastCallTime
         ? (totals.lastCallTime.toLocaleString ? totals.lastCallTime.toLocaleString(locale) : String(totals.lastCallTime))
         : noCallsYet;
@@ -4679,9 +4696,9 @@ function renderMonitorStats(statsMap = {}, lastFetchedAt = null) {
     const rateTone = hasCalls ? getMcpStatsRateTone(successRateNum) : 'is-muted';
     let rateSubText = noCallsYet;
     if (hasCalls) {
-        rateSubText = mcpMonitorT('rateHealthy') || '运行平稳';
-        if (successRateNum < 80) rateSubText = mcpMonitorT('rateCritical') || '失败率偏高';
-        else if (successRateNum < 95) rateSubText = mcpMonitorT('rateWarning') || '存在失败调用';
+        rateSubText = mcpMonitorT('rateHealthy') || monitorFallback('运行平稳', 'Running smoothly');
+        if (successRateNum < 80) rateSubText = mcpMonitorT('rateCritical') || monitorFallback('失败率偏高', 'High failure rate');
+        else if (successRateNum < 95) rateSubText = mcpMonitorT('rateWarning') || monitorFallback('存在失败调用', 'Some failures detected');
     }
 
     const toolFilterEl = document.getElementById('monitor-tool-filter');
@@ -4730,12 +4747,12 @@ function renderMonitorExecutions(executions = [], statusFilter = 'all') {
         const toolFilter = document.getElementById('monitor-tool-filter');
         const currentToolFilter = toolFilter ? toolFilter.value : 'all';
         const hasFilter = (statusFilter && statusFilter !== 'all') || (currentToolFilter && currentToolFilter !== 'all');
-        const noRecordsFilter = typeof window.t === 'function' ? window.t('mcpMonitor.noRecordsWithFilter') : '当前筛选条件下暂无记录';
-        const noExecutions = typeof window.t === 'function' ? window.t('mcpMonitor.noExecutions') : '暂无执行记录';
+        const noRecordsFilter = typeof window.t === 'function' ? window.t('mcpMonitor.noRecordsWithFilter') : monitorFallback('当前筛选条件下暂无记录', 'No records with current filter');
+        const noExecutions = typeof window.t === 'function' ? window.t('mcpMonitor.noExecutions') : monitorFallback('暂无执行记录', 'No execution records');
         if (hasFilter) {
             container.innerHTML = '<div class="monitor-empty">' + escapeHtml(noRecordsFilter) + '</div>';
         } else {
-            const emptyHint = typeof window.t === 'function' ? window.t('mcpMonitor.emptyHint') : '在对话或任务中调用 MCP 工具后，执行记录将显示在此处';
+            const emptyHint = typeof window.t === 'function' ? window.t('mcpMonitor.emptyHint') : monitorFallback('在对话或任务中调用 MCP 工具后，执行记录将显示在此处', 'Execution records will appear here after you invoke MCP tools in chat or tasks');
             container.innerHTML = `<div class="monitor-empty">
                 <p class="monitor-empty__title">${escapeHtml(noExecutions)}</p>
                 <p class="monitor-empty__hint">${escapeHtml(emptyHint)}</p>
@@ -4863,13 +4880,15 @@ function renderMonitorPagination() {
     // 处理没有数据的情况
     const startItem = total === 0 ? 0 : (page - 1) * pageSize + 1;
     const endItem = total === 0 ? 0 : Math.min(page * pageSize, total);
-    const paginationInfoText = typeof window.t === 'function' ? window.t('mcpMonitor.paginationInfo', { start: startItem, end: endItem, total: total }) : `显示 ${startItem}-${endItem} / 共 ${total} 条记录`;
-    const perPageLabel = typeof window.t === 'function' ? window.t('mcpMonitor.perPageLabel') : '每页显示';
-    const firstPageLabel = typeof window.t === 'function' ? window.t('mcp.firstPage') : '首页';
-    const prevPageLabel = typeof window.t === 'function' ? window.t('mcp.prevPage') : '上一页';
-    const pageInfoText = typeof window.t === 'function' ? window.t('mcp.pageInfo', { page: page, total: totalPages || 1 }) : `第 ${page} / ${totalPages || 1} 页`;
-    const nextPageLabel = typeof window.t === 'function' ? window.t('mcp.nextPage') : '下一页';
-    const lastPageLabel = typeof window.t === 'function' ? window.t('mcp.lastPage') : '末页';
+    const paginationInfoText = mcpMonitorT('paginationInfo', { start: startItem, end: endItem, total: total })
+        || (typeof window.t === 'function' ? window.t('mcpMonitor.paginationInfo', { start: startItem, end: endItem, total: total }) : `Show ${startItem}-${endItem} of ${total} records`);
+    const perPageLabel = mcpMonitorT('perPageLabel') || (typeof window.t === 'function' ? window.t('mcpMonitor.perPageLabel') : 'Per page');
+    const firstPageLabel = mcpMonitorT('firstPage') || (typeof window.t === 'function' ? window.t('mcp.firstPage') : 'First');
+    const prevPageLabel = mcpMonitorT('prevPage') || (typeof window.t === 'function' ? window.t('mcp.prevPage') : 'Previous');
+    const pageInfoText = mcpMonitorT('pageInfo', { page: page, total: totalPages || 1 })
+        || (typeof window.t === 'function' ? window.t('mcp.pageInfo', { page: page, total: totalPages || 1 }) : `Page ${page} / ${totalPages || 1}`);
+    const nextPageLabel = mcpMonitorT('nextPage') || (typeof window.t === 'function' ? window.t('mcp.nextPage') : 'Next');
+    const lastPageLabel = mcpMonitorT('lastPage') || (typeof window.t === 'function' ? window.t('mcp.lastPage') : 'Last');
     pagination.innerHTML = `
         <div class="pagination-info">
             <span>${escapeHtml(paginationInfoText)}</span>
@@ -5220,13 +5239,16 @@ document.addEventListener('languagechange', function () {
     updateBatchActionsState();
     loadActiveTasks();
     refreshProgressAndTimelineI18n();
-    if (monitorState.stats && Object.keys(monitorState.stats).length > 0) {
-        renderMonitorStats(monitorState.stats, monitorState.lastFetchedAt);
-    }
+    refreshMonitorPanelFromState();
 });
 
 document.addEventListener('DOMContentLoaded', function () {
     bindMonitorStatsPanelEvents();
+    if (window.i18nReady && typeof window.i18nReady.then === 'function') {
+        window.i18nReady.then(function () {
+            refreshMonitorPanelFromState();
+        });
+    }
 });
 
 window.filterMonitorByTool = filterMonitorByTool;
