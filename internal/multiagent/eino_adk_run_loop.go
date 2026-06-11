@@ -1027,7 +1027,30 @@ func runEinoADKAgentLoop(ctx context.Context, args *einoADKRunLoopArgs, baseMsgs
 		orchMode, runAccumulatedMsgs, persistTraceSource(args, runAccumulatedMsgs),
 		lastAssistant, lastPlanExecuteExecutor, emptyHint, ids, false,
 	)
+	if shouldEinoEmptyResponseContinue(out, emptyHint, len(runAccumulatedMsgs), baseAccumulatedCount) {
+		if logger != nil {
+			logger.Info("eino empty response, ending run segment for handler resume",
+				zap.String("conversationId", conversationID),
+				zap.String("orchestration", orchMode),
+				zap.Int("traceMessages", len(runAccumulatedMsgs)))
+		}
+		if progress != nil {
+			progress("eino_empty_response_continue", "会话已结束但未产生助手正文，正在基于轨迹自动续跑…", map[string]interface{}{
+				"conversationId": conversationID,
+				"source":         "eino",
+				"resumeKind":     "trace_segment",
+			})
+		}
+		return out, ErrEmptyResponseContinue
+	}
 	return out, nil
+}
+
+func shouldEinoEmptyResponseContinue(out *RunResult, emptyHint string, accumulatedLen, baseCount int) bool {
+	if out == nil || accumulatedLen <= baseCount {
+		return false
+	}
+	return strings.TrimSpace(out.Response) == strings.TrimSpace(emptyHint)
 }
 
 func persistTraceSource(args *einoADKRunLoopArgs, fallback []adk.Message) []adk.Message {
