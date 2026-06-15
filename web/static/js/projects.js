@@ -5,6 +5,7 @@ let projectsCache = [];
 let projectsCacheAll = [];
 const PROJECTS_LIST_PAGE_SIZE_KEY = 'cyberstrike.projects_list_page_size';
 let currentProjectId = null;
+let currentProjectUpdatedAt = null;
 let currentProjectTab = 'facts';
 const projectNameById = {};
 let _projectsListReady = false;
@@ -644,6 +645,24 @@ function updateProjectStatusPill(status) {
     el.className = 'projects-status-pill ' + (archived ? 'projects-status-pill--archived' : 'projects-status-pill--active');
 }
 
+function renderProjectDetailMeta(updatedAt) {
+    const metaEl = document.getElementById('projects-detail-meta');
+    if (!metaEl) return;
+    const time = formatProjectTime(updatedAt);
+    metaEl.textContent = tpFmt('projects.updatedPrefix', `Updated ${time}`, { time });
+}
+
+function refreshProjectDetailMetaI18n() {
+    if (!currentProjectId) return;
+    let updatedAt = currentProjectUpdatedAt;
+    if (updatedAt == null) {
+        const source = projectsCacheAll.length ? projectsCacheAll : projectsCache;
+        const p = source.find((x) => x.id === currentProjectId);
+        updatedAt = p?.updated_at;
+    }
+    renderProjectDetailMeta(updatedAt);
+}
+
 function updateProjectStats(stats) {
     const s = stats || {};
     const f = document.getElementById('project-stat-facts');
@@ -698,8 +717,8 @@ async function selectProject(id) {
         const pinEl = document.getElementById('project-edit-pinned');
         if (pinEl) pinEl.checked = !!p.pinned;
         updateProjectStatusPill(p.status || 'active');
-        const metaEl = document.getElementById('projects-detail-meta');
-        if (metaEl) metaEl.textContent = tpFmt('projects.updatedPrefix', `Updated ${formatProjectTime(p.updated_at)}`, { time: formatProjectTime(p.updated_at) });
+        currentProjectUpdatedAt = p.updated_at;
+        renderProjectDetailMeta(currentProjectUpdatedAt);
         renderProjectDetailDesc(p.description);
         projectNameById[p.id] = p.name || p.id;
     } catch (e) {
@@ -1868,6 +1887,10 @@ function initChatProjectSelector() {
             const panel = document.getElementById('chat-project-panel');
             if (panel && panel.style.display === 'flex') renderChatProjectPanelList();
             if (currentProjectId) {
+                refreshProjectDetailMetaI18n();
+                const source = projectsCacheAll.length ? projectsCacheAll : projectsCache;
+                const p = source.find((x) => x.id === currentProjectId);
+                if (p) updateProjectStatusPill(p.status || 'active');
                 refreshProjectHeaderStats().catch(() => {});
                 switchProjectTab(currentProjectTab || 'facts');
             }
