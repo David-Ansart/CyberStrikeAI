@@ -299,6 +299,7 @@ async function loadConfig(loadTools = true) {
         }
 
         fillVisionConfigFromCurrent(currentConfig.vision || {});
+        initModelListControls();
 
         // 填充FOFA配置
         const fofa = currentConfig.fofa || {};
@@ -1569,9 +1570,214 @@ function syncVisionFormEnabled() {
     if (panel) {
         panel.style.opacity = enabled ? '1' : '0.55';
         panel.querySelectorAll('input, select, textarea, a').forEach(el => {
-            if (el.id === 'test-vision-btn') return;
+            if (el.id === 'test-vision-btn' || el.id === 'fetch-vision-models-btn' || el.id === 'vision-model-select') return;
             el.disabled = !enabled;
         });
+        syncModelListFetchButtons();
+    }
+}
+
+function initModelListControls() {
+    const providerEl = document.getElementById('openai-provider');
+    if (providerEl && !providerEl.dataset.modelListBound) {
+        providerEl.dataset.modelListBound = '1';
+        providerEl.addEventListener('change', syncModelListFetchButtons);
+    }
+    const visionProv = document.getElementById('vision-provider');
+    if (visionProv && !visionProv.dataset.modelListBound) {
+        visionProv.dataset.modelListBound = '1';
+        visionProv.addEventListener('change', syncModelListFetchButtons);
+    }
+    bindModelSelect('openai');
+    bindModelSelect('vision');
+    syncModelListFetchButtons();
+}
+
+function modelSelectIds(scope) {
+    if (scope === 'vision') {
+        return { selectId: 'vision-model-select', inputId: 'vision-model' };
+    }
+    return { selectId: 'openai-model-select', inputId: 'openai-model' };
+}
+
+function bindModelSelect(scope) {
+    const { selectId, inputId } = modelSelectIds(scope);
+    const select = document.getElementById(selectId);
+    if (!select || select.dataset.bound) return;
+    select.dataset.bound = '1';
+    select.addEventListener('change', function () {
+        if (!select.value) return;
+        const input = document.getElementById(inputId);
+        if (input) input.value = select.value;
+    });
+}
+
+function resolveModelListCredentials(scope) {
+    if (scope === 'vision') {
+        const vp = (document.getElementById('vision-provider')?.value || '').trim();
+        const provider = vp || document.getElementById('openai-provider')?.value || 'openai';
+        const baseUrl = (document.getElementById('vision-base-url')?.value || '').trim()
+            || (document.getElementById('openai-base-url')?.value || '').trim();
+        const apiKey = (document.getElementById('vision-api-key')?.value || '').trim()
+            || (document.getElementById('openai-api-key')?.value || '').trim();
+        return { provider, base_url: baseUrl, api_key: apiKey };
+    }
+    return {
+        provider: document.getElementById('openai-provider')?.value || 'openai',
+        base_url: (document.getElementById('openai-base-url')?.value || '').trim(),
+        api_key: (document.getElementById('openai-api-key')?.value || '').trim()
+    };
+}
+
+function syncModelListFetchButtons() {
+    const tFn = typeof window.t === 'function' ? window.t : (k) => k;
+    const openaiProv = document.getElementById('openai-provider')?.value || 'openai';
+    const openaiBtn = document.getElementById('fetch-openai-models-btn');
+    const openaiHint = document.getElementById('fetch-openai-models-hint');
+    const openaiSelect = document.getElementById('openai-model-select');
+    const isClaudeOpenai = openaiProv === 'claude';
+    if (openaiBtn) {
+        openaiBtn.style.display = isClaudeOpenai ? 'none' : '';
+    }
+    if (openaiSelect && isClaudeOpenai) {
+        openaiSelect.style.display = 'none';
+    }
+    if (openaiHint) {
+        if (isClaudeOpenai) {
+            openaiHint.textContent = tFn('settingsBasic.modelsListClaudeHint');
+            openaiHint.style.display = '';
+        } else {
+            openaiHint.textContent = '';
+            openaiHint.style.display = 'none';
+        }
+    }
+
+    const vp = (document.getElementById('vision-provider')?.value || '').trim();
+    const visionEffectiveProv = vp || openaiProv;
+    const visionBtn = document.getElementById('fetch-vision-models-btn');
+    const visionHint = document.getElementById('fetch-vision-models-hint');
+    const visionSelect = document.getElementById('vision-model-select');
+    const isClaudeVision = visionEffectiveProv === 'claude';
+    if (visionBtn) {
+        visionBtn.style.display = isClaudeVision ? 'none' : '';
+    }
+    if (visionSelect && isClaudeVision) {
+        visionSelect.style.display = 'none';
+    }
+    if (visionHint) {
+        if (isClaudeVision) {
+            visionHint.textContent = tFn('settingsBasic.modelsListClaudeHint');
+            visionHint.style.display = '';
+        } else {
+            visionHint.textContent = '';
+            visionHint.style.display = 'none';
+        }
+    }
+}
+
+function populateModelSelect(scope, models, currentValue) {
+    const { selectId, inputId } = modelSelectIds(scope);
+    const select = document.getElementById(selectId);
+    const input = document.getElementById(inputId);
+    if (!select) return;
+    const tFn = typeof window.t === 'function' ? window.t : (k) => k;
+    select.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.disabled = true;
+    placeholder.textContent = tFn('settingsBasic.modelsListSelectPlaceholder');
+    select.appendChild(placeholder);
+
+    const seen = new Set();
+    const addOption = (id) => {
+        const val = (id || '').trim();
+        if (!val || seen.has(val)) return;
+        seen.add(val);
+        const opt = document.createElement('option');
+        opt.value = val;
+        opt.textContent = val;
+        select.appendChild(opt);
+    };
+    (models || []).forEach(addOption);
+    const cur = (currentValue || (input && input.value) || '').trim();
+    if (cur && seen.has(cur)) {
+        select.value = cur;
+    } else {
+        select.value = '';
+    }
+    select.style.display = select.options.length > 1 ? '' : 'none';
+}
+
+async function fetchModelList(scope) {
+    const tFn = typeof window.t === 'function' ? window.t : (k) => k;
+    const creds = resolveModelListCredentials(scope);
+    const btnId = scope === 'vision' ? 'fetch-vision-models-btn' : 'fetch-openai-models-btn';
+    const resultId = scope === 'vision' ? 'fetch-vision-models-result' : 'fetch-openai-models-result';
+    const inputId = scope === 'vision' ? 'vision-model' : 'openai-model';
+    const btn = document.getElementById(btnId);
+    const resultEl = document.getElementById(resultId);
+    const inputEl = document.getElementById(inputId);
+
+    if (creds.provider === 'claude') {
+        if (resultEl) {
+            resultEl.textContent = tFn('settingsBasic.modelsListClaudeHint');
+            resultEl.style.color = 'var(--text-muted, #718096)';
+        }
+        return;
+    }
+    if (!creds.api_key) {
+        if (resultEl) {
+            resultEl.textContent = tFn('settingsBasic.modelsListNeedApiKey');
+            resultEl.style.color = 'var(--error-color, #e53e3e)';
+        }
+        return;
+    }
+
+    if (btn) {
+        btn.style.pointerEvents = 'none';
+        btn.style.opacity = '0.5';
+    }
+    if (resultEl) {
+        resultEl.textContent = tFn('settingsBasic.modelsListFetching');
+        resultEl.style.color = 'var(--text-muted, #718096)';
+    }
+
+    try {
+        const response = await apiFetch('/api/config/list-models', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(creds)
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || '请求失败');
+        }
+        if (!result.success) {
+            if (resultEl) {
+                resultEl.textContent = (result.supported === false
+                    ? tFn('settingsBasic.modelsListClaudeHint')
+                    : tFn('settingsBasic.modelsListFailed')) + ': ' + (result.error || '');
+                resultEl.style.color = 'var(--error-color, #e53e3e)';
+            }
+            return;
+        }
+        const currentValue = inputEl ? inputEl.value.trim() : '';
+        populateModelSelect(scope, result.models || [], currentValue);
+        if (resultEl) {
+            const count = result.count != null ? result.count : (result.models || []).length;
+            resultEl.textContent = tFn('settingsBasic.modelsListSuccess').replace('{count}', String(count));
+            resultEl.style.color = 'var(--success-color, #38a169)';
+        }
+    } catch (error) {
+        if (resultEl) {
+            resultEl.textContent = tFn('settingsBasic.modelsListFailed') + ': ' + error.message;
+            resultEl.style.color = 'var(--error-color, #e53e3e)';
+        }
+    } finally {
+        if (btn) {
+            btn.style.pointerEvents = '';
+            btn.style.opacity = '';
+        }
     }
 }
 

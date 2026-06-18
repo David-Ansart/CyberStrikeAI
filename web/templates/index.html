@@ -2408,7 +2408,15 @@
                                         </div>
                                         <div class="form-group">
                                             <label for="openai-model"><span data-i18n="settingsBasic.model">模型</span> <span style="color: red;">*</span></label>
-                                            <input type="text" id="openai-model" data-i18n="settingsBasic.modelPlaceholder" data-i18n-attr="placeholder" placeholder="gpt-4" required />
+                                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                                <input type="text" id="openai-model" data-i18n="settingsBasic.modelPlaceholder" data-i18n-attr="placeholder" placeholder="gpt-4" required style="flex: 1; min-width: 140px;" />
+                                                <select id="openai-model-select" class="model-pick-select" style="display: none; min-width: 160px; max-width: 240px;" title="">
+                                                    <option value="" disabled data-i18n="settingsBasic.modelsListSelectPlaceholder">请选择模型</option>
+                                                </select>
+                                                <a href="javascript:void(0)" id="fetch-openai-models-btn" onclick="fetchModelList('openai')" style="font-size: 0.8125rem; color: var(--accent-color, #3182ce); text-decoration: none; cursor: pointer; user-select: none; white-space: nowrap;" data-i18n="settingsBasic.fetchModels">获取列表</a>
+                                            </div>
+                                            <small id="fetch-openai-models-hint" class="form-hint" style="display: none; font-size: 0.75rem; margin-top: 4px;"></small>
+                                            <span id="fetch-openai-models-result" style="font-size: 0.75rem; margin-top: 2px; display: block;"></span>
                                         </div>
                                         <div class="form-group">
                                             <label for="openai-max-total-tokens"><span data-i18n="settingsBasic.maxTotalTokens">最大上下文 Token 数</span></label>
@@ -2486,7 +2494,15 @@
                                             </div>
                                             <div class="form-group">
                                                 <label for="vision-model"><span data-i18n="settingsBasic.visionModel">视觉模型</span> <span style="color: red;">*</span></label>
-                                                <input type="text" id="vision-model" data-i18n="settingsBasic.visionModelPlaceholder" data-i18n-attr="placeholder" placeholder="qwen-vl-max" />
+                                                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                                    <input type="text" id="vision-model" data-i18n="settingsBasic.visionModelPlaceholder" data-i18n-attr="placeholder" placeholder="qwen-vl-max" style="flex: 1; min-width: 140px;" />
+                                                    <select id="vision-model-select" class="model-pick-select" style="display: none; min-width: 160px; max-width: 240px;">
+                                                        <option value="" disabled data-i18n="settingsBasic.modelsListSelectPlaceholder">请选择模型</option>
+                                                    </select>
+                                                    <a href="javascript:void(0)" id="fetch-vision-models-btn" onclick="fetchModelList('vision')" style="font-size: 0.8125rem; color: var(--accent-color, #3182ce); text-decoration: none; cursor: pointer; user-select: none; white-space: nowrap;" data-i18n="settingsBasic.fetchModels">获取列表</a>
+                                                </div>
+                                                <small id="fetch-vision-models-hint" class="form-hint" style="display: none; font-size: 0.75rem; margin-top: 4px;"></small>
+                                                <span id="fetch-vision-models-result" style="font-size: 0.75rem; margin-top: 2px; display: block;"></span>
                                             </div>
                                             <details style="margin-top: 8px;">
                                                 <summary style="cursor: pointer; font-size: 0.875rem; color: var(--accent-color, #3182ce);" data-i18n="settingsBasic.visionAdvanced">高级：预处理与限制</summary>
