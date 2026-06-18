@@ -105,17 +105,18 @@ func (h *ConversationHandler) ListConversations(c *gin.Context) {
 
 	excludeGrouped := strings.TrimSpace(search) == "" &&
 		(c.Query("exclude_grouped") == "true" || c.Query("exclude_grouped") == "1")
+	sortBy := strings.TrimSpace(c.Query("sort_by"))
 
 	var conversations []*database.Conversation
 	var total int
 	var err error
 	if excludeGrouped {
-		conversations, err = h.db.ListUngroupedConversations(limit, offset)
+		conversations, err = h.db.ListUngroupedConversations(limit, offset, sortBy)
 		if err == nil {
 			total, err = h.db.CountUngroupedConversations()
 		}
 	} else {
-		conversations, err = h.db.ListConversations(limit, offset, search)
+		conversations, err = h.db.ListConversations(limit, offset, search, sortBy)
 		if err == nil {
 			total, err = h.db.CountConversations(search)
 		}

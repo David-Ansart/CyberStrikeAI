@@ -1678,6 +1678,7 @@ func (h *AgentHandler) ListBatchQueues(c *gin.Context) {
 // StartBatchQueue 开始执行批量任务队列
 func (h *AgentHandler) StartBatchQueue(c *gin.Context) {
 	queueID := c.Param("queueId")
+	h.batchTaskManager.ClearSingleRunTask(queueID)
 	ok, err := h.startBatchQueueExecution(queueID, false)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -1709,6 +1710,7 @@ func (h *AgentHandler) RerunBatchQueue(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "重置队列失败"})
 		return
 	}
+	h.batchTaskManager.ClearSingleRunTask(queueID)
 	ok, err := h.startBatchQueueExecution(queueID, false)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -1908,6 +1910,53 @@ func (h *AgentHandler) AddBatchTask(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "任务已添加", "task": task, "queue": queue})
 }
 
+// RunSingleBatchTask 单条执行指定子任务（可覆盖已成功项），完成后暂停队列
+func (h *AgentHandler) RunSingleBatchTask(c *gin.Context) {
+	queueID := c.Param("queueId")
+	taskID := c.Param("taskId")
+
+	if err := h.batchTaskManager.PrepareSingleTaskRun(queueID, taskID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	h.batchTaskManager.SetSingleRunTask(queueID, taskID)
+
+	// 暂停态单条执行：旧批量协程可能仍占用执行槽，先回收以便重新启动
+	if queue, ok := h.batchTaskManager.GetBatchQueue(queueID); ok && queue.Status == BatchQueueStatusPaused {
+		h.forceUnmarkBatchQueueRunning(queueID)
+	}
+
+	autoStarted := true
+	autoStartMsg := "已开始单条执行"
+	ok, startErr := h.startBatchQueueExecution(queueID, false)
+	if startErr != nil {
+		h.batchTaskManager.ClearSingleRunTask(queueID)
+		autoStarted = false
+		autoStartMsg = "任务已准备就绪，但自动启动失败: " + startErr.Error()
+	} else if !ok {
+		h.batchTaskManager.ClearSingleRunTask(queueID)
+		autoStarted = false
+		autoStartMsg = "任务已准备就绪，但队列不存在"
+	}
+
+	queue, exists := h.batchTaskManager.GetBatchQueue(queueID)
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "队列不存在"})
+		return
+	}
+	if h.audit != nil {
+		h.audit.RecordOK(c, "task", "run_single_batch_task", "单条执行批量子任务", "batch_task", taskID, map[string]interface{}{
+			"batch_queue_id": queueID,
+			"auto_started":   autoStarted,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message":     autoStartMsg,
+		"queue":       queue,
+		"autoStarted": autoStarted,
+	})
+}
+
 // DeleteBatchTask 删除批量任务
 func (h *AgentHandler) DeleteBatchTask(c *gin.Context) {
 	queueID := c.Param("queueId")
@@ -1947,6 +1996,10 @@ func (h *AgentHandler) unmarkBatchQueueRunning(queueID string) {
 	h.batchRunnerMu.Lock()
 	defer h.batchRunnerMu.Unlock()
 	delete(h.batchRunning, queueID)
+}
+
+func (h *AgentHandler) forceUnmarkBatchQueueRunning(queueID string) {
+	h.unmarkBatchQueueRunning(queueID)
 }
 
 func (h *AgentHandler) nextBatchQueueRunAt(cronExpr string, from time.Time) (*time.Time, error) {
@@ -2096,6 +2149,10 @@ func (h *AgentHandler) executeBatchQueue(queueID string) {
 			h.logger.Error("创建对话失败", zap.String("queueId", queueID), zap.String("taskId", task.ID), zap.Error(err))
 			h.batchTaskManager.UpdateTaskStatus(queueID, task.ID, "failed", "", "创建对话失败: "+err.Error())
 			h.batchTaskManager.MoveToNextTask(queueID)
+			if h.batchTaskManager.TakeSingleRunTaskIfMatch(queueID, task.ID) {
+				h.batchTaskManager.UpdateQueueStatus(queueID, "paused")
+				break
+			}
 			continue
 		}
 		conversationID = conv.ID
@@ -2351,6 +2408,12 @@ func (h *AgentHandler) executeBatchQueue(queueID string) {
 
 		// 移动到下一个任务
 		h.batchTaskManager.MoveToNextTask(queueID)
+
+		if h.batchTaskManager.TakeSingleRunTaskIfMatch(queueID, task.ID) {
+			h.batchTaskManager.UpdateQueueStatus(queueID, "paused")
+			h.logger.Info("单条执行完成，队列已暂停", zap.String("queueId", queueID), zap.String("taskId", task.ID))
+			break
+		}
 
 		// 检查是否被取消或暂停
 		queue, _ = h.batchTaskManager.GetBatchQueue(queueID)
