@@ -2035,12 +2035,17 @@
                     <div class="page-header">
                         <h2 data-i18n="c2.sessions.title">会话管理</h2>
                         <div class="page-header-actions">
+                            <button type="button" class="btn-danger" id="c2-sessions-batch-delete" disabled onclick="C2.deleteSelectedSessions()"><span data-i18n="c2.sessions.batchDelete">批量删除</span></button>
+                            <button type="button" class="btn-secondary" id="c2-sessions-delete-filtered" disabled onclick="C2.deleteFilteredSessions()"><span data-i18n="c2.sessions.deleteFiltered">删除筛选结果</span></button>
                             <button class="btn-secondary" onclick="C2.loadSessions()"><span data-i18n="common.refresh">刷新</span></button>
                         </div>
                     </div>
                     <div class="page-content" style="padding:0;">
                         <div class="c2-session-layout">
-                            <div id="c2-session-list" class="c2-session-sidebar"></div>
+                            <div class="c2-session-sidebar-wrap">
+                                <div id="c2-session-toolbar" class="c2-sessions-toolbar"></div>
+                                <div id="c2-session-list" class="c2-session-sidebar"></div>
+                            </div>
                             <div id="c2-session-main" class="c2-session-main"></div>
                         </div>
                     </div>

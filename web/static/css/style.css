@@ -444,6 +444,18 @@ body {
     align-items: center;
 }
 
+.page-header-actions .btn-danger,
+.page-header-actions .btn-secondary,
+.page-header-actions .btn-primary {
+    padding: 7px 16px;
+    font-size: 0.875rem;
+    line-height: 1.25;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+
 .page-content {
     flex: 1;
     overflow-y: auto;
